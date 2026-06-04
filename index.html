@@ -1,0 +1,203 @@
+<!DOCTYPE html>
+<html lang="ro">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Proiect Grafica</title>
+    <style>
+        body { margin: 0; overflow: hidden; background-color: #050011; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
+        #overlay {
+            position: absolute; top: 20px; left: 20px; color: #fff;
+            pointer-events: none; z-index: 10;
+        }
+        h1 { 
+            margin: 0; font-size: 2rem; letter-spacing: 3px; 
+            text-transform: uppercase;
+            text-shadow: 0 0 10px #ff00ff, 0 0 20px #ff00ff;
+        }
+        p { 
+            margin: 5px 0 0 0; font-size: 1.1rem; opacity: 0.9; 
+            color: #00ffff; text-shadow: 0 0 8px #00ffff;
+        }
+    </style>
+</head>
+<body>
+    <div id="overlay">
+        <h1>Proiect Grafica</h1>
+
+    </div>
+
+    <script type="importmap">
+      {
+        "imports": {
+          "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+          "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
+        }
+      }
+    </script>
+
+    <script type="module">
+        import * as THREE from 'three';
+        import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+
+        // 1. SETUP SCENA & FOG
+        const scene = new THREE.Scene();
+        scene.fog = new THREE.FogExp2(0x110022, 0.03); 
+
+        const camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 1000);
+        camera.position.set(0, 8, 22);
+
+        const renderer = new THREE.WebGLRenderer({ antialias: true });
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        renderer.setPixelRatio(window.devicePixelRatio);
+        document.body.appendChild(renderer.domElement);
+
+        const controls = new OrbitControls(camera, renderer.domElement);
+        controls.enableDamping = true;
+        controls.autoRotate = true; 
+        controls.autoRotateSpeed = 1.0;
+
+        // 2. NUCLEUL (Icosaedru)
+        const coreGeo = new THREE.IcosahedronGeometry(3, 0); 
+        const coreMat = new THREE.MeshStandardMaterial({ color: 0x111111, roughness: 0.1, metalness: 1 });
+        const core = new THREE.Mesh(coreGeo, coreMat);
+        scene.add(core);
+
+        const wireMat = new THREE.LineBasicMaterial({ color: 0x00ffff, linewidth: 2 });
+        const wire = new THREE.LineSegments(new THREE.EdgesGeometry(coreGeo), wireMat);
+        wire.scale.set(1.05, 1.05, 1.05); 
+        core.add(wire);
+
+        // 3. INELE ORBITALE
+        const ring1 = new THREE.Mesh(
+            new THREE.TorusGeometry(7, 0.1, 16, 100), 
+            new THREE.MeshBasicMaterial({ color: 0xff00ff, transparent: true, opacity: 0.8 })
+        );
+        ring1.rotation.x = Math.PI / 2;
+        scene.add(ring1);
+        
+        const ring2 = new THREE.Mesh(
+            new THREE.TorusGeometry(9, 0.05, 16, 100), 
+            new THREE.MeshBasicMaterial({ color: 0x00ffff, transparent: true, opacity: 0.6 })
+        );
+        scene.add(ring2);
+
+        // 4. NEBULOASA (Particule)
+        const particleCount = 2000;
+        const particleGeo = new THREE.BufferGeometry();
+        const posArray = new Float32Array(particleCount * 3);
+        const colorArray = new Float32Array(particleCount * 3);
+        
+        const colorMagenta = new THREE.Color(0xff00ff);
+        const colorCyan = new THREE.Color(0x00ffff);
+
+        for(let i = 0; i < particleCount * 3; i += 3) {
+            posArray[i] = (Math.random() - 0.5) * 60;
+            posArray[i+1] = (Math.random() - 0.5) * 60;
+            posArray[i+2] = (Math.random() - 0.5) * 60;
+
+            const mixedColor = colorMagenta.clone().lerp(colorCyan, Math.random());
+            colorArray[i] = mixedColor.r;
+            colorArray[i+1] = mixedColor.g;
+            colorArray[i+2] = mixedColor.b;
+        }
+
+        particleGeo.setAttribute('position', new THREE.BufferAttribute(posArray, 3));
+        particleGeo.setAttribute('color', new THREE.BufferAttribute(colorArray, 3));
+        const particleMat = new THREE.PointsMaterial({ size: 0.15, vertexColors: true, transparent: true, opacity: 0.8 });
+        const particles = new THREE.Points(particleGeo, particleMat);
+        scene.add(particles);
+
+        // 5. NAVA SPATIALA DE PATRULARE
+        const shipGroup = new THREE.Group();
+        
+        // Corpul navei
+        const shipBodyGeo = new THREE.ConeGeometry(0.5, 2, 8);
+        shipBodyGeo.rotateX(-Math.PI / 2); // indreptam varful spre directia de mers (-Z)
+        const shipMat = new THREE.MeshStandardMaterial({ color: 0xff00ff, metalness: 0.9, roughness: 0.2 });
+        const shipBody = new THREE.Mesh(shipBodyGeo, shipMat);
+        shipGroup.add(shipBody);
+
+        // Aripi
+        const wingGeo = new THREE.BoxGeometry(3, 0.1, 1);
+        const wingMat = new THREE.MeshStandardMaterial({ color: 0xff00ff, metalness: 0.8, roughness: 0.3 });
+        const wings = new THREE.Mesh(wingGeo, wingMat);
+        wings.position.set(0, 0, 0.5); // Punem aripile mai pe spate
+        shipGroup.add(wings);
+
+        // Propulsoare (Cilindri neon cian)
+        const engineMat = new THREE.MeshBasicMaterial({ color: 0x00ffff });
+        
+        const engine1 = new THREE.Mesh(new THREE.CylinderGeometry(0.15, 0.15, 0.4), engineMat);
+        engine1.rotateX(Math.PI / 2);
+        engine1.position.set(-0.8, 0, 1.1);
+        shipGroup.add(engine1);
+
+        const engine2 = new THREE.Mesh(new THREE.CylinderGeometry(0.15, 0.15, 0.4), engineMat);
+        engine2.rotateX(Math.PI / 2);
+        engine2.position.set(0.8, 0, 1.1);
+        shipGroup.add(engine2);
+
+        scene.add(shipGroup);
+
+        // 6. LUMINI
+        scene.add(new THREE.AmbientLight(0x111122)); 
+        
+        const lightMagenta = new THREE.PointLight(0xff00ff, 50, 50);
+        lightMagenta.position.set(-8, 5, 5);
+        scene.add(lightMagenta);
+
+        const lightCyan = new THREE.PointLight(0x00ffff, 50, 50);
+        lightCyan.position.set(8, -5, -5);
+        scene.add(lightCyan);
+
+        // 7. ANIMAtIE
+        const clock = new THREE.Clock();
+
+        function animate() {
+            requestAnimationFrame(animate);
+            const time = clock.getElapsedTime();
+
+            // Nucleu si Inele
+            core.rotation.y = time * 0.2;
+            core.rotation.z = time * 0.1;
+            ring1.rotation.y = time * -0.5;
+            ring1.rotation.x = (Math.PI / 2) + Math.sin(time * 0.5) * 0.2; 
+            ring2.rotation.x = time * 0.3;
+            ring2.rotation.y = time * 0.4;
+            particles.rotation.y = time * 0.02;
+
+            // Logica Navei Spatiale
+            const shipRadius = 12;
+            const shipSpeed = 0.8;
+            
+            // Calculam pozitia actuala pe un cerc + o usoara deviatie pe axa Y (valuri)
+            shipGroup.position.x = Math.sin(time * shipSpeed) * shipRadius;
+            shipGroup.position.z = Math.cos(time * shipSpeed) * shipRadius;
+            shipGroup.position.y = Math.sin(time * 1.5) * 2;
+
+            // Calculam punctul imediat urmator pentru a orienta botul navei
+            const targetX = Math.sin((time + 0.1) * shipSpeed) * shipRadius;
+            const targetZ = Math.cos((time + 0.1) * shipSpeed) * shipRadius;
+            const targetY = Math.sin((time + 0.1) * 1.5) * 2;
+            
+            // Orientam nava pe directia de mers
+            shipGroup.lookAt(targetX, targetY, targetZ);
+            
+            // Adaugam un efect de inclinare (banking) in timpul virajului
+            shipGroup.rotateZ(Math.sin(time * shipSpeed) * 0.4);
+
+            controls.update();
+            renderer.render(scene, camera);
+        }
+
+        window.addEventListener('resize', () => {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        });
+
+        animate();
+    </script>
+</body>
+</html>
